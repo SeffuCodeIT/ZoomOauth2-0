@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -15,29 +16,180 @@ class ZoomController extends Controller
     }
     //++++++++++++++++++++++++++++++++++++++++++++++++
     //++++++++++++++++++++++++++++++++++++++++++++++++
-    public function index(Request $request)
+//
+
+    public function showMeetingForm()
     {
+        return view('create-meeting');
+    }
+//    public function createMeeting(Request $request)
+//    {
+////        dd($request->all());
+//        $validator = Validator::make($request->all(), [
+////            'token' => 'required',
+//            'topic' => 'required',
+//            'start_time' => 'required',
+//            'agenda' => 'required',
+//        ]);
+//
+//        if ($validator->fails()) {
+//            dd($validator->errors()->all());
+//            return 'Meeting data not validated';
+//        } else {
+//
+////            return 'Meeting data validated'. dd($request->all());
+//            $meetingConfig = [
+//                    'topic' => $request->input('topic'),
+//                    'start_time' => $request->input('start_time'), // Add 'Z' for UTC time zone
+//                    'agenda' => $request->input('agenda'),
+//                    'jwtToken' => $request->input('_token'),
+//                ];
+//
+////            dd($meetingConfig);
+//            $get_zoom_details = $this->create_a_zoom_meeting($meetingConfig);
+//
+//                // Handle the response accordingly
+//                if ($get_zoom_details && $get_zoom_details['success']) {
+//                    // Meeting created successfully
+//                    // You can redirect to a success page or return a success message
+//                    return 'Meeting created successfully';
+//                } else {
+//                    // Failed to create the meeting
+//                    // You can redirect back with an error message or return an error message
+//                    return 'Failed to create the meeting';
+//                }
+//
+//        }
+//
+//
+//    }
+
+        public function createMeeting(Request $request)
+    {
+//         dd($request->all());
+
         if (!$request->code) {
             $this->get_oauth_step_1();
         } else {
-            $getToken = $this->get_oauth_step_2($request->code);
-//            dd($getToken);
-            $get_zoom_details = $this->create_a_zoom_meeting([
-                'topic'      => 'Interview With Code-180',
-                'start_time' => date('Y-m-dTh:i:00') . 'Z',
-                'agenda'     => "We are having interview with @code-180",
-                'jwtToken'   => $getToken['access_token'],
+            $accessToken = $this->get_oauth_step_2($request->code);
+
+            // Add the access token to the request data
+            $request->merge(['token' => $accessToken]);
+
+//            dd($request->all());
+
+            // Validate the request data
+//            $validator = Validator::make($request->all(), [
+//                'token' => 'required',
+//                'topic' => 'required',
+//                'start_time' => 'required',
+//                'agenda' => 'required',
+//            ]);
+            $validator = $request->validate([
+                'token' => 'required',
+                'topic' => 'required',
+                'start_time' => 'required',
+                'agenda' => 'required',
             ]);
-            return view('welcome')->with('respond', json_encode($get_zoom_details));
+
+            if ($validator->fails()) {
+                 dd($validator->errors()->all());
+                return 'Meeting data not validated';
+            } else{
+
+                // Your code to create the meeting goes here
+                $meetingDetails = [
+                    'topic' => $request->input('topic'),
+                    'start_time' => $request->input('start_time') . 'Z', // Add 'Z' for UTC time zone
+                    'agenda' => $request->input('agenda'),
+                    'jwtToken' => $getToken['access_token'],
+                ];
+
+//        dd($meetingDetails);
+                $get_zoom_details = $this->create_a_zoom_meeting($meetingDetails);
+
+                // Handle the response accordingly
+                if ($get_zoom_details && $get_zoom_details['success']) {
+                    // Meeting created successfully
+                    // You can redirect to a success page or return a success message
+                    return 'Meeting created successfully';
+                } else {
+                    // Failed to create the meeting
+                    // You can redirect back with an error message or return an error message
+                    return 'Failed to create the meeting';
+                }
+            }
+
+
         }
     }
+
+//    public function createMeeting(Request $request)
+//    {
+//        if (!$request->has('jwtToken')) {
+//            // Access token not present, obtain it
+//            if (!$request->has('code')) {
+//                $this->get_oauth_step_1();
+//            } else {
+//                $getToken = $this->get_oauth_step_2($request->code);
+//                // Store the access token in the request for future use
+//                $request->merge(['jwtToken' => $getToken['access_token']]);
+////                dd($getToken['access_token']);
+//            }
+//        }
+//
+//
+//        // Meeting details are valid, proceed with creating the Zoom meeting
+//        $meetingDetails = [
+//            'topic' => $request->input('topic'),
+//            'start_time' => $request->input('start_time') . 'Z', // Add 'Z' for UTC time zone
+//            'agenda' => $request->input('agenda'),
+//            'jwtToken' => $getToken['access_token'],
+//        ];
+//
+////        dd($meetingDetails);
+//        $get_zoom_details = $this->create_a_zoom_meeting($meetingDetails);
+//
+//        // Handle the response accordingly
+//        if ($get_zoom_details && $get_zoom_details['success']) {
+//            // Meeting created successfully
+//            // You can redirect to a success page or return a success message
+//            return 'Meeting created successfully';
+//        } else {
+//            // Failed to create the meeting
+//            // You can redirect back with an error message or return an error message
+//            return 'Failed to create the meeting';
+//        }
+//
+//    }
+
+    private function getAccessToken()
+    {
+        $tokenURL = 'https://zoom.us/oauth/token';
+        $clientID = 'KrVX6l_MQ29VyutgQiMHA';
+        $clientSecret = '9DWdAFSPBq4AkoIrX2vwpGCtUzamvtOR';
+
+        $response = Http::post($tokenURL, [
+            'grant_type' => 'client_credentials',
+            'client_id' => $clientID,
+            'client_secret' => $clientSecret,
+        ]);
+
+        if ($response->failed()) {
+            return null;
+        }
+
+        return $response['access_token'];
+    }
+
+
     //++++++++++++++++++++++++++++++++++++++++++++++++
     //++++++++++++++++++++++++++++++++++++++++++++++++
     private function get_oauth_step_1()
     {
         //++++++++++++++++++++++++++++++++++++++++++++++++
         //++++++++++++++++++++++++++++++++++++++++++++++++
-        $redirectURL  = 'http://192.168.43.241:8000/zoom-meeting-create';
+        $redirectURL  = 'http://192.168.43.241:8001/create-meeting';
         $authorizeURL = 'https://zoom.us/oauth/authorize';
         //++++++++++++++++++++++++++++++++++++++++++++++++++
         $clientID     = 'KrVX6l_MQ29VyutgQiMHA';
@@ -55,7 +207,7 @@ class ZoomController extends Controller
         //++++++++++++++++++++++++++++++++++++++++++++++++
         //++++++++++++++++++++++++++++++++++++++++++++++++
         $tokenURL    = 'https://zoom.us/oauth/token';
-        $redirectURL = 'http://192.168.43.241:8000/zoom-meeting-create';
+        $redirectURL = 'http://192.168.43.241:8001/create-meeting';
         //++++++++++++++++++++++++++++++++++++++++++++++++++
         $clientID     = 'KrVX6l_MQ29VyutgQiMHA';
         $clientSecret = '9DWdAFSPBq4AkoIrX2vwpGCtUzamvtOR';
@@ -101,7 +253,7 @@ class ZoomController extends Controller
             'start_time' => $meetingConfig['start_time'] ?? date('Y-m-dTh:i:00') . 'Z',
             'duration'   => $meetingConfig['duration'] ?? 30,
             'password'   => $meetingConfig['password'] ?? mt_rand(),
-            'timezone'   => 'Asia/Kolkata',
+            'timezone'   => 'Nairobi/Kenya',
             'agenda'     => $meetingConfig['agenda'] ?? 'Interview Meeting',
             'settings'   => [
                 'host_video'        => false,

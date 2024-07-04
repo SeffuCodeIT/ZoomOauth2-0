@@ -18,5 +18,11 @@ use App\Http\Controllers\ZoomController;
 Route::get('/', function () {
     return view('welcome')->with('respond', 'MEETING API RESPOND WILL COME IN THIS SECTION');
 });
-Route::get('start', [ZoomController::class, 'index']);
-Route::any('zoom-meeting-create', [ZoomController::class, 'index']);
+
+Route::get('create-meeting-form', [ZoomController::class, 'showMeetingForm']);
+Route::match(['get', 'post'], 'create-meeting', [ZoomController::class, 'createMeeting']);
+
+//Route::post('create-meetings', [ZoomController::class, 'createMeeting']);
+//Route::get('start', [ZoomController::class, 'index']);
+//
+//Route::any('zoom-meeting-create', [ZoomController::class, 'index']);
